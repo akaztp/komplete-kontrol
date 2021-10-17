@@ -5,6 +5,14 @@
     var NoteExpression = root.NoteExpression;
     // variables
     var controllers;
+    
+    function onMidi0(s, d1, d2) {
+        _.each(controllers, function(c) {_.isFunction(c.onMidi0) && c.onMidi0(s, d1, d2);});
+    }
+
+    function onMidi1(s, d1, d2) {
+        _.each(controllers, function(c) {_.isFunction(c.onMidi1) && c.onMidi1(s, d1, d2);});
+    }
 
     Bitwig.defineController(
         'Native Instruments',
@@ -64,13 +72,5 @@
         _.each(controllers.reverse(), function(c) {_.isFunction(c.exit) && c.exit();});
         controllers = undefined;
     };
-
-    function onMidi0(s, d1, d2) {
-        _.each(controllers, function(c) {_.isFunction(c.onMidi0) && c.onMidi0(s, d1, d2);});
-    }
-
-    function onMidi1(s, d1, d2) {
-        _.each(controllers, function(c) {_.isFunction(c.onMidi1) && c.onMidi1(s, d1, d2);});
-    }
 
 }(this, host, this.KompleteKontrol, _));
