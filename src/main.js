@@ -38,8 +38,8 @@
             ['KOMPLETE KONTROL S25 Port 1', 'Komplete Kontrol DAW - 1']);
     } else if (Bitwig.platformIsWindows()) {
         Bitwig.addDeviceNameBasedDiscoveryPair(
-            ['Komplete Kontrol- 1', 'Komplete Kontrol DAW-1'],
-            ['Komplete Kontrol- 1', 'Komplete Kontrol DAW-1']);
+            ['Komplete Kontrol - 1', 'Komplete Kontrol DAW - 1'],
+            ['Komplete Kontrol - 1', 'Komplete Kontrol DAW - 1']);
     }
 
     root.init = function() {
