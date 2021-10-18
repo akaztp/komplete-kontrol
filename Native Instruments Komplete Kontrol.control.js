@@ -2043,7 +2043,7 @@
 
 (function(root) {
     'use strict';
-    root.loadAPI(1);
+    root.loadAPI(12);
 }(this));
 
 (function(root, Bitwig, _) {
@@ -2061,7 +2061,7 @@
             return SYSEX_HEADER + '00 ' + items.join(SYSEX_SEP) + SYSEX_EOX;
         },
 
-        displlayMessage: function(grid, text) {
+        displayMessage: function(grid, text) {
             var t = text ? utils.encode(text.substr(0, MAX_CHARS)) : '';
             while(t.length < MAX_CHARS * 3) { t += '20 ';}
             return SYSEX_HEADER + utils.hex(Math.min(grid,3)*28) + t + SYSEX_EOX;
@@ -2089,6 +2089,8 @@
     // export
     root.KompleteKontrol || (root.KompleteKontrol = {});
     root.KompleteKontrol.utils = utils;
+    root.KompleteKontrol.vstID = 1315523403;
+    
 }(this, host, _));
 
 (function(root, Bitwig, _) {
@@ -2215,7 +2217,7 @@
                 transport = this.transport;
             arguments.length > 0 && (this.ffwOn = arguments[0]);
             if (this.ffwOn) {
-                this.considerPlaying(transport, transport.fastForward);
+                this.considerPlaying(transport.fastForward);
                 Bitwig.scheduleTask(function() {
                     context.fastForwardMomentary();
                 }, null, 100);
@@ -2227,7 +2229,7 @@
                 transport = this.transport;
             arguments.length > 0 && (this.rwdOn = arguments[0]);
             if (this.rwdOn) {
-                this.considerPlaying(transport, transport.rewind);
+                this.considerPlaying(transport.rewind);
                 Bitwig.scheduleTask(function() {
                     context.rewindMomentary();
                 }, null, 100);
@@ -2238,13 +2240,12 @@
             var transport = this.transport;
             if (this.isPlaying) {
                 transport.stop();
-                func.call(context);
-                var thisContext = this;
+                func();
                 Bitwig.scheduleTask(function() {
                     transport.play();
                 }, null, 50);
             } else {
-                func.call(context);
+                func();
             }
         }
     };
@@ -2259,25 +2260,27 @@
     'use strict';
     // imports
     var utils = root.KompleteKontrol.utils;
+    var KK_VST_ID = root.KompleteKontrol.vstID;
 
     // constants
     var MAX_CHARS = 28,
         SID_START = 20,
-        SID_NAV_LEFT = 20,
-        SID_NAV_RIGHT = 21,
+        SID_NAV_UP = 20,
+        SID_NAV_DOWN = 21,
         SID_END = 21,
-        PARAM_PREFIX = 'NIKB',
+        KK_ID_PARAM_PREFIX = 'NIKB',
         PLUGIN_PREFIX = 'Komplete Kontrol',
         SYSEX_HEADER = 'f0 00 00 66 14 12 ',
         SYSEX_SEP = '19 ',
         SYSEX_EOX = 'f7';
 
     // constructor
-    var FocusController = function(midiOut, cursorTrack, cursorDevice) {
+    var FocusController = function(midiOut, cursorTrack, kkDeviceMatcher) {
         // instance variables
         this.midiOut = midiOut;
         this.track = cursorTrack;
-        this.device = cursorDevice;
+        this.deviceBank = cursorTrack.createDeviceBank(3);
+        this.kkDeviceMatcher = kkDeviceMatcher;
         this.status = {
             track: undefined,   // current selected track name
             device: undefined,  // current selected device name
@@ -2293,39 +2296,46 @@
     FocusController.prototype = {
         initialize: function() {
             var track = this.track,
-                device = this.device,
+                deviceBank = this.deviceBank,
                 status = this.status;
             
+            deviceBank.setDeviceMatcher(this.kkDeviceMatcher);
+
+
             track.addNameObserver(MAX_CHARS, '', function(value) {
                 status.track = value;
                 status.hasChanged = true;
             });
 
             track.addPositionObserver(function(value) {
+                deviceBank.getDevice(0).selectInEditor();
                 status.trackPosition = value;
                 status.hasChanged = true;
             });
 
-            device.addNameObserver(MAX_CHARS, '', function(value) {
-                status.device = value;
-                status.hasChanged = true;
-            });
+            deviceBank.getDevice(0)
+                .addNameObserver(MAX_CHARS, '', function(value) {
+                    if (value) {
+                    status.device = value;
+                    status.hasChanged = true;
+                    }
+                });
 
-            // Komplete Kontrol MIKBnn paramater must map top of common paramater.
-            // MIKBnn  nn = id of Komplete Kontrol instance.
-            device.getCommonParameter(0).addNameObserver(MAX_CHARS, '', function(value) {
-                var device = status.device;
-                status.id = (device && device.lastIndexOf(PLUGIN_PREFIX) === 0 &&
-                             value.lastIndexOf(PARAM_PREFIX) === 0) ?
-                    value.substring(PARAM_PREFIX.length) : undefined;
-                status.hasChanged = true;
-            });
+            deviceBank.getDevice(0)
+                .createSpecificVst2Device(KK_VST_ID)
+                // Komplete Kontrol MIKBnn paramater is always the first
+                .createParameter(0)
+                // MIKBnn:  nn = id of Komplete Kontrol instance.
+                .addNameObserver(MAX_CHARS, '', function(value) {
+                  status.id = value.substring(KK_ID_PARAM_PREFIX.length);
+                  status.hasChanged = true;
+                });
 
-            this.createElement(SID_NAV_LEFT, {
+            this.createElement(SID_NAV_UP, {
                 on: function() {track.selectPrevious();}
             });
 
-            this.createElement(SID_NAV_RIGHT, {
+            this.createElement(SID_NAV_DOWN, {
                 on: function() {track.selectNext();}
             });
         },
@@ -2352,7 +2362,7 @@
 
         sendStatus: function() {
             var status = this.status;
-            if(status.hasChanged) {
+            if(status.hasChanged && status.trackPosition >= 0) {
                 var d = [];
                 root.println('## flush track:[' + status.track + 
                              '] position:[' + status.trackPosition + 
@@ -2414,10 +2424,11 @@
                 index++;
             });
 
+            var remoteControls = device.createCursorRemoteControlsPage(8);
             _.each(encRange, function(cc) {
-                var macro = device.getMacro(cc - ENCODER_START_CC).getAmount();
-                macro.setIndication(true);
-                elements[cc - LOWEST_CC] = macro;
+                var parameter = remoteControls.getParameter(cc - ENCODER_START_CC);
+                parameter.setIndication(true);
+                elements[cc - LOWEST_CC] = parameter;
             });
         },
 
@@ -2450,7 +2461,7 @@
     var NoteExpression = root.NoteExpression;
     // variables
     var controllers;
-    
+
     function onMidi0(s, d1, d2) {
         _.each(controllers, function(c) {_.isFunction(c.onMidi0) && c.onMidi0(s, d1, d2);});
     }
@@ -2461,10 +2472,10 @@
 
     Bitwig.defineController(
         'Native Instruments',
-        'Komplete Kontrol',
-        '0.2',
+        'Komplete Kontrol S Series Mk1',
+        '0.3',
         '6edb3760-4fb6-11e4-916c-0800200c9a66',
-        'jhorology jhorology2014@gmail.com'
+        'in@ztp.pt'
     );
     Bitwig.defineMidiPorts(2, 2);
 
@@ -2483,8 +2494,8 @@
             ['KOMPLETE KONTROL S25 Port 1', 'Komplete Kontrol DAW - 1']);
     } else if (Bitwig.platformIsWindows()) {
         Bitwig.addDeviceNameBasedDiscoveryPair(
-            ['Komplete Kontrol- 1', 'Komplete Kontrol DAW-1'],
-            ['Komplete Kontrol- 1', 'Komplete Kontrol DAW-1']);
+            ['Komplete Kontrol - 1', 'Komplete Kontrol DAW - 1'],
+            ['Komplete Kontrol - 1', 'Komplete Kontrol DAW - 1']);
     }
 
     root.init = function() {
@@ -2495,7 +2506,8 @@
             out1 = Bitwig.getMidiOutPort(1),
             noteIn0 =  in0.createNoteInput('', '??????'),
             track = Bitwig.createArrangerCursorTrack(3, 0),
-            device = track.createCursorDevice();
+            device = track.createCursorDevice(),
+            kkDeviceMatcher = Bitwig.createVST2DeviceMatcher(KompleteKontrol.vstID);
         
         in0.setMidiCallback(onMidi0);
         in1.setMidiCallback(onMidi1);
@@ -2504,7 +2516,7 @@
 
         controllers = [
             new KompleteKontrol.TransportController(out1),
-            new KompleteKontrol.FocusController(out1, track, device),
+            new KompleteKontrol.FocusController(out1, track, kkDeviceMatcher),
             new KompleteKontrol.DeviceController(out1, device)
         ];
     };

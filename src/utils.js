@@ -13,7 +13,7 @@
             return SYSEX_HEADER + '00 ' + items.join(SYSEX_SEP) + SYSEX_EOX;
         },
 
-        displlayMessage: function(grid, text) {
+        displayMessage: function(grid, text) {
             var t = text ? utils.encode(text.substr(0, MAX_CHARS)) : '';
             while(t.length < MAX_CHARS * 3) { t += '20 ';}
             return SYSEX_HEADER + utils.hex(Math.min(grid,3)*28) + t + SYSEX_EOX;
@@ -41,4 +41,6 @@
     // export
     root.KompleteKontrol || (root.KompleteKontrol = {});
     root.KompleteKontrol.utils = utils;
+    root.KompleteKontrol.vstID = 1315523403;
+    
 }(this, host, _));

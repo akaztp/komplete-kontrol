@@ -34,10 +34,11 @@
                 index++;
             });
 
+            var remoteControls = device.createCursorRemoteControlsPage(8);
             _.each(encRange, function(cc) {
-                var macro = device.getMacro(cc - ENCODER_START_CC).getAmount();
-                macro.setIndication(true);
-                elements[cc - LOWEST_CC] = macro;
+                var parameter = remoteControls.getParameter(cc - ENCODER_START_CC);
+                parameter.setIndication(true);
+                elements[cc - LOWEST_CC] = parameter;
             });
         },
 

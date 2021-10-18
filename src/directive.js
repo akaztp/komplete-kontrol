@@ -1,4 +1,4 @@
 (function(root) {
     'use strict';
-    root.loadAPI(1);
+    root.loadAPI(12);
 }(this));

@@ -2,25 +2,27 @@
     'use strict';
     // imports
     var utils = root.KompleteKontrol.utils;
+    var KK_VST_ID = root.KompleteKontrol.vstID;
 
     // constants
     var MAX_CHARS = 28,
         SID_START = 20,
-        SID_NAV_LEFT = 20,
-        SID_NAV_RIGHT = 21,
+        SID_NAV_UP = 20,
+        SID_NAV_DOWN = 21,
         SID_END = 21,
-        PARAM_PREFIX = 'NIKB',
+        KK_ID_PARAM_PREFIX = 'NIKB',
         PLUGIN_PREFIX = 'Komplete Kontrol',
         SYSEX_HEADER = 'f0 00 00 66 14 12 ',
         SYSEX_SEP = '19 ',
         SYSEX_EOX = 'f7';
 
     // constructor
-    var FocusController = function(midiOut, cursorTrack, cursorDevice) {
+    var FocusController = function(midiOut, cursorTrack, kkDeviceMatcher) {
         // instance variables
         this.midiOut = midiOut;
         this.track = cursorTrack;
-        this.device = cursorDevice;
+        this.deviceBank = cursorTrack.createDeviceBank(3);
+        this.kkDeviceMatcher = kkDeviceMatcher;
         this.status = {
             track: undefined,   // current selected track name
             device: undefined,  // current selected device name
@@ -36,39 +38,46 @@
     FocusController.prototype = {
         initialize: function() {
             var track = this.track,
-                device = this.device,
+                deviceBank = this.deviceBank,
                 status = this.status;
             
+            deviceBank.setDeviceMatcher(this.kkDeviceMatcher);
+
+
             track.addNameObserver(MAX_CHARS, '', function(value) {
                 status.track = value;
                 status.hasChanged = true;
             });
 
             track.addPositionObserver(function(value) {
+                deviceBank.getDevice(0).selectInEditor();
                 status.trackPosition = value;
                 status.hasChanged = true;
             });
 
-            device.addNameObserver(MAX_CHARS, '', function(value) {
-                status.device = value;
-                status.hasChanged = true;
-            });
+            deviceBank.getDevice(0)
+                .addNameObserver(MAX_CHARS, '', function(value) {
+                    if (value) {
+                    status.device = value;
+                    status.hasChanged = true;
+                    }
+                });
 
-            // Komplete Kontrol MIKBnn paramater must map top of common paramater.
-            // MIKBnn  nn = id of Komplete Kontrol instance.
-            device.getCommonParameter(0).addNameObserver(MAX_CHARS, '', function(value) {
-                var device = status.device;
-                status.id = (device && device.lastIndexOf(PLUGIN_PREFIX) === 0 &&
-                             value.lastIndexOf(PARAM_PREFIX) === 0) ?
-                    value.substring(PARAM_PREFIX.length) : undefined;
-                status.hasChanged = true;
-            });
+            deviceBank.getDevice(0)
+                .createSpecificVst2Device(KK_VST_ID)
+                // Komplete Kontrol MIKBnn paramater is always the first
+                .createParameter(0)
+                // MIKBnn:  nn = id of Komplete Kontrol instance.
+                .addNameObserver(MAX_CHARS, '', function(value) {
+                  status.id = value.substring(KK_ID_PARAM_PREFIX.length);
+                  status.hasChanged = true;
+                });
 
-            this.createElement(SID_NAV_LEFT, {
+            this.createElement(SID_NAV_UP, {
                 on: function() {track.selectPrevious();}
             });
 
-            this.createElement(SID_NAV_RIGHT, {
+            this.createElement(SID_NAV_DOWN, {
                 on: function() {track.selectNext();}
             });
         },
@@ -95,7 +104,7 @@
 
         sendStatus: function() {
             var status = this.status;
-            if(status.hasChanged) {
+            if(status.hasChanged && status.trackPosition >= 0) {
                 var d = [];
                 root.println('## flush track:[' + status.track + 
                              '] position:[' + status.trackPosition + 

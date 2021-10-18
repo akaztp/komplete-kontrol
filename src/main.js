@@ -5,7 +5,7 @@
     var NoteExpression = root.NoteExpression;
     // variables
     var controllers;
-    
+
     function onMidi0(s, d1, d2) {
         _.each(controllers, function(c) {_.isFunction(c.onMidi0) && c.onMidi0(s, d1, d2);});
     }
@@ -16,10 +16,10 @@
 
     Bitwig.defineController(
         'Native Instruments',
-        'Komplete Kontrol',
-        '0.2',
+        'Komplete Kontrol S Series Mk1',
+        '0.3',
         '6edb3760-4fb6-11e4-916c-0800200c9a66',
-        'jhorology jhorology2014@gmail.com'
+        'in@ztp.pt'
     );
     Bitwig.defineMidiPorts(2, 2);
 
@@ -50,7 +50,8 @@
             out1 = Bitwig.getMidiOutPort(1),
             noteIn0 =  in0.createNoteInput('', '??????'),
             track = Bitwig.createArrangerCursorTrack(3, 0),
-            device = track.createCursorDevice();
+            device = track.createCursorDevice(),
+            kkDeviceMatcher = Bitwig.createVST2DeviceMatcher(KompleteKontrol.vstID);
         
         in0.setMidiCallback(onMidi0);
         in1.setMidiCallback(onMidi1);
@@ -59,7 +60,7 @@
 
         controllers = [
             new KompleteKontrol.TransportController(out1),
-            new KompleteKontrol.FocusController(out1, track, device),
+            new KompleteKontrol.FocusController(out1, track, kkDeviceMatcher),
             new KompleteKontrol.DeviceController(out1, device)
         ];
     };
