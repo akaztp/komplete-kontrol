@@ -122,7 +122,7 @@
                 transport = this.transport;
             arguments.length > 0 && (this.ffwOn = arguments[0]);
             if (this.ffwOn) {
-                this.considerPlaying(transport, transport.fastForward);
+                this.considerPlaying(transport.fastForward);
                 Bitwig.scheduleTask(function() {
                     context.fastForwardMomentary();
                 }, null, 100);
@@ -134,7 +134,7 @@
                 transport = this.transport;
             arguments.length > 0 && (this.rwdOn = arguments[0]);
             if (this.rwdOn) {
-                this.considerPlaying(transport, transport.rewind);
+                this.considerPlaying(transport.rewind);
                 Bitwig.scheduleTask(function() {
                     context.rewindMomentary();
                 }, null, 100);
@@ -145,13 +145,12 @@
             var transport = this.transport;
             if (this.isPlaying) {
                 transport.stop();
-                func.call(context);
-                var thisContext = this;
+                func();
                 Bitwig.scheduleTask(function() {
                     transport.play();
                 }, null, 50);
             } else {
-                func.call(context);
+                func();
             }
         }
     };
