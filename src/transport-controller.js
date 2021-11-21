@@ -141,7 +141,7 @@
             }
         },
 
-        considerPlaying: function(context, func) {
+        considerPlaying: function(func) {
             var transport = this.transport;
             if (this.isPlaying) {
                 transport.stop();
